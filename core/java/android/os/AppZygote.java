@@ -79,11 +79,11 @@ public class AppZygote {
      * Returns the zygote process associated with this app zygote.
      * Creates the process if it's not already running.
      */
-    public ChildZygoteProcess getProcess() {
+    public ChildZygoteProcess getProcess(@Nullable String flatExtraArgs) {
         synchronized (mLock) {
             if (mZygote != null) return mZygote;
 
-            connectToZygoteIfNeededLocked();
+            connectToZygoteIfNeededLocked(flatExtraArgs);
             return mZygote;
         }
     }
@@ -145,16 +145,17 @@ public class AppZygote {
             pkgDataInfoMap,
             @Nullable Map<String, Pair<String, Long>>
             allowlistedDataInfoList,
-            @Nullable String[] zygoteArgs) {
+            @Nullable String[] zygoteArgs,
+            @Nullable String flatExtraArgs) {
         try {
-            return getProcess().start(processClass,
+            return getProcess(flatExtraArgs).start(processClass,
                     niceName, uid, uid, gids, runtimeFlags, mountExternal,
                     targetSdkVersion, seInfo, abi, instructionSet,
                     appDataDir, null, packageName,
                     /*zygotePolicyFlags=*/ ZYGOTE_POLICY_FLAG_EMPTY, isTopApp,
                     disabledCompatChanges, pkgDataInfoMap, allowlistedDataInfoList,
                     false, false, false,
-                    zygoteArgs);
+                    zygoteArgs, null);
         } catch (RuntimeException e) {
             if (!Flags.appZygoteRetryStart()) {
                 throw e;
@@ -190,7 +191,7 @@ public class AppZygote {
     }
 
     @GuardedBy("mLock")
-    private void connectToZygoteIfNeededLocked() {
+    private void connectToZygoteIfNeededLocked(@Nullable String flatExtraArgs) {
         String abi = mAppInfo.primaryCpuAbi != null ? mAppInfo.primaryCpuAbi :
                 Build.SUPPORTED_ABIS[0];
         try {
@@ -211,7 +212,8 @@ public class AppZygote {
                     abi, // acceptedAbiList
                     VMRuntime.getInstructionSet(abi), // instructionSet
                     mZygoteUidGidMin,
-                    mZygoteUidGidMax);
+                    mZygoteUidGidMax,
+                    flatExtraArgs);
 
             ZygoteProcess.waitForConnectionToZygote(mZygote.getPrimarySocketAddress());
             // preload application code in the zygote
