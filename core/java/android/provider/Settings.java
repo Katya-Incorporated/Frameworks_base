@@ -12961,6 +12961,9 @@ public final class Settings {
         public static final String BLUETOOTH_AUTO_OFF = "bluetooth_off_timeout";
 
         /** @hide */
+        public static final String NFC_AUTO_OFF = "nfc_off_timeout";
+
+        /** @hide */
         public static final String REMOTE_KEY_PROVISIONING_SERVER = "attest_remote_provisioner_server";
 
         /** @hide */
