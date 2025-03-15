@@ -13201,7 +13201,11 @@ public final class Settings {
         @Protected(readWrite = KnownSystemPackage.SETTINGS)
         public static final String BLUETOOTH_AUTO_OFF = "bluetooth_off_timeout";
 
-        /** @hide */
+	/** @hide */
+        @Protected(readWrite = KnownSystemPackage.SETTINGS)
+        public static final String NFC_AUTO_OFF = "nfc_off_timeout";
+        
+	/** @hide */
         @Protected(restrictReads = false, readWrite = KnownSystemPackage.SETTINGS)
         public static final String REMOTE_KEY_PROVISIONING_SERVER = "attest_remote_provisioner_server";
 
