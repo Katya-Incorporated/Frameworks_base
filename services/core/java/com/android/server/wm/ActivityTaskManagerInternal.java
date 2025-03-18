@@ -480,6 +480,15 @@ public abstract class ActivityTaskManagerInternal {
      */
     public abstract void resumeTopActivities(boolean scheduleIdle);
 
+    /**
+     * Resumes all top activities in the system if they aren't resumed already.
+     * @param scheduleIdle If the idle message should be schedule after the top activities are
+     *                     resumed.
+     * @param isAfterUserForegrounded If being called after a user has been recently put into the
+     *                                foreground (userId should be updated to the foreground user)
+     */
+    public abstract void resumeTopActivities(boolean scheduleIdle, boolean isAfterUserForegrounded);
+
     /** Called by AM just before it binds to an application process. */
     @NonNull
     public abstract PreBindInfo preBindApplication(@NonNull WindowProcessController wpc,

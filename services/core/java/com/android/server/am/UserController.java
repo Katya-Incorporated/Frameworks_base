@@ -2659,7 +2659,7 @@ class UserController implements Handler.Callback {
         if (homeInFront) {
             mInjector.startHomeActivity(newUserId, "moveUserToForeground");
         } else {
-            mInjector.taskSupervisorResumeFocusedStackTopActivity();
+            mInjector.taskSupervisorResumeFocusedStackTopActivityAfterUserForegrounded();
         }
         EventLogTags.writeAmSwitchUser(newUserId);
     }
@@ -4082,8 +4082,9 @@ class UserController implements Handler.Callback {
             return mService.mAtmInternal.switchUser(userId, uss);
         }
 
-        protected void taskSupervisorResumeFocusedStackTopActivity() {
-            mService.mAtmInternal.resumeTopActivities(false /* scheduleIdle */);
+        protected void taskSupervisorResumeFocusedStackTopActivityAfterUserForegrounded() {
+            mService.mAtmInternal.resumeTopActivities(
+                    false /* scheduleIdle */, true /* isAfterUserForegrounded */);
         }
 
         protected void clearAllLockedTasks(String reason) {

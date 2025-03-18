@@ -6788,8 +6788,13 @@ public class ActivityTaskManagerService extends IActivityTaskManager.Stub {
 
         @Override
         public void resumeTopActivities(boolean scheduleIdle) {
+            resumeTopActivities(scheduleIdle, false /* isAfterUserForegrounded */);
+        }
+
+        @Override
+        public void resumeTopActivities(boolean scheduleIdle, boolean isAfterUserForegrounded) {
             synchronized (mGlobalLock) {
-                mRootWindowContainer.resumeFocusedTasksTopActivities();
+                mRootWindowContainer.resumeFocusedTasksTopActivities(isAfterUserForegrounded);
                 if (scheduleIdle) {
                     mTaskSupervisor.scheduleIdle();
                 }

@@ -205,7 +205,8 @@ public class UserControllerTest {
             doNothing().when(mInjector).clearAllLockedTasks(anyString());
             doNothing().when(mInjector).startHomeActivity(anyInt(), anyString());
             doReturn(false).when(mInjector).taskSupervisorSwitchUser(anyInt(), any());
-            doNothing().when(mInjector).taskSupervisorResumeFocusedStackTopActivity();
+            doNothing().when(mInjector)
+                    .taskSupervisorResumeFocusedStackTopActivityAfterUserForegrounded();
             doNothing().when(mInjector).systemServiceManagerOnUserStopped(anyInt());
             doNothing().when(mInjector).systemServiceManagerOnUserCompletedEvent(
                     anyInt(), anyInt());
