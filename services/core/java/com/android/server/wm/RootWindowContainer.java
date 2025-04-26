@@ -2479,6 +2479,11 @@ class RootWindowContainer extends WindowContainer<DisplayContent>
         return resumeFocusedTasksTopActivities(null, null, null, false /* deferPause */);
     }
 
+    boolean resumeFocusedTasksTopActivities(boolean isAfterUserForegrounded) {
+        return resumeFocusedTasksTopActivities(null, null, null, false /* deferPause */,
+                isAfterUserForegrounded);
+    }
+
     boolean resumeFocusedTasksTopActivities(
             Task targetRootTask, ActivityRecord target) {
         return resumeFocusedTasksTopActivities(targetRootTask, target, null /* targetOptions */,
@@ -2488,15 +2493,30 @@ class RootWindowContainer extends WindowContainer<DisplayContent>
     boolean resumeFocusedTasksTopActivities(
             Task targetRootTask, ActivityRecord target, ActivityOptions targetOptions,
             boolean deferPause) {
+        return resumeFocusedTasksTopActivities(targetRootTask, target, targetOptions, deferPause,
+                false /* isAfterUserForegrounded */);
+    }
+
+    boolean resumeFocusedTasksTopActivities(
+            Task targetRootTask, ActivityRecord target, ActivityOptions targetOptions,
+            boolean deferPause, boolean isAfterUserForegrounded) {
         if (!mTaskSupervisor.readyToResume()) {
             return false;
         }
 
         boolean result = false;
-        if (targetRootTask != null && (targetRootTask.isTopRootTaskInDisplayArea()
+        if (!isAfterUserForegrounded && targetRootTask != null &&
+                (targetRootTask.isTopRootTaskInDisplayArea()
                 || getTopDisplayFocusedRootTask() == targetRootTask)) {
             result = targetRootTask.resumeTopActivityUncheckedLocked(target, targetOptions,
                     deferPause);
+        }
+
+        if (isAfterUserForegrounded) {
+            // We need to update keyguard state for the foreground user so that keyguard visibility
+            // of the activities can be checked later. As this is after a user has been
+            // foregrounded, this will use the new user's keyguard state.
+            mTaskSupervisor.getKeyguardController().updateVisibility();
         }
 
         for (int displayNdx = getChildCount() - 1; displayNdx >= 0; --displayNdx) {
@@ -2508,6 +2528,16 @@ class RootWindowContainer extends WindowContainer<DisplayContent>
                 final ActivityRecord topRunningActivity = rootTask.topRunningActivity();
                 if (!rootTask.isFocusableAndVisible() || topRunningActivity == null) {
                     return;
+                }
+                if (isAfterUserForegrounded) {
+                    // If the user has been recently put to the foreground, it's after a user
+                    // switch, so they will be at keyguard. Do not try to resume activities if the
+                    // activity doesn't allow showing on keyguard! Otherwise, they will always be
+                    // resumed (and then promptly stopped), since the code path of
+                    // makeActiveIfNeeded doesn't check keyguard visibility.
+                    if (!shouldResumeForUserForeground(topRunningActivity)) {
+                        return;
+                    }
                 }
                 if (rootTask == targetRootTask) {
                     // Simply update the result for targetRootTask because the targetRootTask
@@ -2532,7 +2562,9 @@ class RootWindowContainer extends WindowContainer<DisplayContent>
                 // of top activity in focused root task explicitly will make sure that at least home
                 // activity is started and resumed, and no recursion occurs.
                 final Task focusedRoot = display.getFocusedRootTask();
-                if (focusedRoot != null) {
+                final boolean shouldResume = !isAfterUserForegrounded ||
+                        shouldResumeForUserForeground(focusedRoot);
+                if (focusedRoot != null && shouldResume) {
                     result |= focusedRoot.resumeTopActivityUncheckedLocked(
                             target, targetOptions, false /* skipPause */);
                 } else if (targetRootTask == null) {
@@ -2543,6 +2575,17 @@ class RootWindowContainer extends WindowContainer<DisplayContent>
         }
 
         return result;
+    }
+
+    private boolean shouldResumeForUserForeground(final Task task) {
+        return shouldResumeForUserForeground(task != null ? task.topRunningActivity() : null);
+    }
+
+    private boolean shouldResumeForUserForeground(final ActivityRecord topRunningActivity) {
+        if (topRunningActivity == null) {
+            return false;
+        }
+        return mTaskSupervisor.getKeyguardController().checkKeyguardVisibility(topRunningActivity);
     }
 
     void sendSleepTransition(final DisplayContent display) {
