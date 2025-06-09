@@ -44,6 +44,8 @@ import android.service.credentials.RemoteEntry;
 import android.util.Pair;
 import android.util.Slog;
 
+import com.android.server.pm.ext.GmsCoreUtils;
+
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -94,7 +96,7 @@ public final class ProviderGetSession extends ProviderSession<BeginGetCredential
         android.credentials.GetCredentialRequest filteredRequest =
                 filterOptions(providerInfo.getCapabilities(),
                         getRequestSession.mClientRequest,
-                        providerInfo, getRequestSession.mHybridService);
+                        providerInfo, getRequestSession.mHybridService, context, userId);
         if (filteredRequest != null) {
             Map<String, CredentialOption> beginGetOptionToCredentialOptionMap =
                     new HashMap<>();
@@ -130,7 +132,7 @@ public final class ProviderGetSession extends ProviderSession<BeginGetCredential
         android.credentials.GetCredentialRequest filteredRequest =
                 filterOptions(providerInfo.getCapabilities(),
                         getRequestSession.mClientRequest,
-                        providerInfo, getRequestSession.mHybridService);
+                        providerInfo, getRequestSession.mHybridService, context, userId);
         if (filteredRequest != null) {
             Map<String, CredentialOption> beginGetOptionToCredentialOptionMap =
                     new HashMap<>();
@@ -181,13 +183,22 @@ public final class ProviderGetSession extends ProviderSession<BeginGetCredential
             List<String> providerCapabilities,
             android.credentials.GetCredentialRequest clientRequest,
             CredentialProviderInfo info,
-            String hybridService) {
+            String hybridService,
+            Context context,
+            @UserIdInt int userId) {
         Slog.i(TAG, "Filtering request options for: " + info.getComponentName());
         if (android.credentials.flags.Flags.hybridFilterOptFixEnabled()) {
             ComponentName hybridComponentName = ComponentName.unflattenFromString(hybridService);
             if (hybridComponentName != null && hybridComponentName
                     .equals(info.getComponentName())) {
                 Slog.i(TAG, "Skipping filtering of options for hybrid service");
+                return clientRequest;
+            }
+            // Filter options are skipped on stock OS, since hybridComponentName corresponds to
+            // what's set in OEM config (GMS's RemoteService on stock Pixel)
+            if (GmsCoreUtils.shouldBypassRemoteEntryCredentialProviderRestrictions(
+                    context, info.getComponentName(), userId)) {
+                Slog.i(TAG, "Skipping filtering of options for hybrid service due to GMS core");
                 return clientRequest;
             }
             Slog.w(TAG, "Could not parse hybrid service while filtering options");
