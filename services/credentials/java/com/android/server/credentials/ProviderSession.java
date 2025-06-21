@@ -33,6 +33,7 @@ import android.os.RemoteException;
 import android.util.Slog;
 
 import com.android.server.credentials.metrics.ProviderSessionMetric;
+import com.android.server.pm.ext.GmsCoreUtils;
 
 import java.util.UUID;
 
@@ -253,6 +254,15 @@ public abstract class ProviderSession<T, R>
 
     protected boolean enforceRemoteEntryRestrictions(
             @Nullable ComponentName expectedRemoteEntryProviderService) {
+        if (GmsCoreUtils.shouldBypassRemoteEntryCredentialProviderRestrictions(
+                mContext, mComponentName, mUserId)) {
+            // Bypassing a frameworks OEM config check and the permission grant check for
+            // Manifest.permission.PROVIDE_REMOTE_CREDENTIALS. GMS doesn't seem to require
+            // Manifest.permission.PROVIDE_REMOTE_CREDENTIALS for FIDO2 (NFC and USB) to work.
+            Slog.w(TAG, "Remote entry accepted from GmsCoreUtils bypass");
+            return true;
+        }
+
         // Check if the service is the one set by the OEM. If not silently reject this entry
         if (!mComponentName.equals(expectedRemoteEntryProviderService)) {
             Slog.w(TAG, "Remote entry being dropped as it is not from the service "
