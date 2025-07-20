@@ -1006,6 +1006,24 @@ final class InstallPackageHelper {
         return false;
     }
 
+    @GuardedBy("mRunningInstalls")
+    private final ArraySet<String> mRunningInstalls = new ArraySet<>();
+
+    private String getPackageName(InstallRequest r) {
+        if (r.getPkg() != null) return r.getPkg().getPackageName();
+        if (r.getParsedPackage() != null) return r.getParsedPackage().getPackageName();
+        if (r.getPackageLite() != null) return r.getPackageLite().getPackageName();
+        return r.getName();
+    }
+
+    private void removeInstallRequestFromRunningInstalls(List<InstallRequest> requests) {
+        synchronized (mRunningInstalls) {
+            for (InstallRequest request : requests) {
+                mRunningInstalls.remove(getPackageName(request));
+            }
+        }
+    }
+
     /**
      * Installs one or more packages atomically. This operation is broken up into four phases:
      * <ul>
@@ -1029,6 +1047,7 @@ final class InstallPackageHelper {
         Trace.traceBegin(TRACE_TAG_PACKAGE_MANAGER, "installPackages");
         boolean pendingForDexopt = false;
         boolean success = false;
+        boolean prepDexoptFailed = false;
         final Map<String, Boolean> createdAppId = new ArrayMap<>(requests.size());
         final Map<String, Settings.VersionInfo> versionInfos = new ArrayMap<>(requests.size());
         final long acquireTime = acquireWakeLock(requests.size());
@@ -1049,7 +1068,12 @@ final class InstallPackageHelper {
                         final Runnable actionsAfterDexopt = () ->
                                 doPostDexopt(reconciledPackages, requests,
                                         createdAppId, moveInfo, acquireTime);
-                        prepPerformDexoptIfNeeded(reconciledPackages, actionsAfterDexopt);
+                        try {
+                            prepPerformDexoptIfNeeded(reconciledPackages, actionsAfterDexopt);
+                        } catch (Throwable t) {
+                            prepDexoptFailed = true;
+                            throw t;
+                        }
                     } else {
                         if (commitInstallPackages(reconciledPackages)) {
                             success = true;
@@ -1063,6 +1087,9 @@ final class InstallPackageHelper {
                 Trace.traceEnd(TRACE_TAG_PACKAGE_MANAGER);
                 doPostInstall(requests, moveInfo);
                 releaseWakeLock(acquireTime, requests.size());
+            }
+            if (!pendingForDexopt || prepDexoptFailed) {
+                removeInstallRequestFromRunningInstalls(requests);
             }
         }
     }
@@ -1082,6 +1109,7 @@ final class InstallPackageHelper {
             completeInstallProcess(requests, createdAppId, success);
             Trace.traceEnd(TRACE_TAG_PACKAGE_MANAGER);
             doPostInstall(requests, moveInfo);
+            removeInstallRequestFromRunningInstalls(requests);
             releaseWakeLock(acquireTime, requests.size());
         }
     }
@@ -1460,6 +1488,16 @@ final class InstallPackageHelper {
     }
 
     private void preparePackage(InstallRequest request) throws PrepareFailure {
+        synchronized (mRunningInstalls) {
+            if (DEBUG_INSTALL) {
+                Slog.d(TAG, "Currently running installs: " + mRunningInstalls);
+            }
+            if (!mRunningInstalls.add(getPackageName(request))) {
+                throw new PrepareFailure(PackageManager.INSTALL_FAILED_INTERNAL_ERROR,
+                        "Package is already being installed.");
+            }
+        }
+
         final int[] allUsers =  mPm.mUserManager.getUserIds();
         final int installFlags = request.getInstallFlags();
         final boolean onExternal = request.getVolumeUuid() != null;
