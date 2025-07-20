@@ -347,7 +347,7 @@ public class PackageManagerService implements PackageSender, TestUtilityService 
     static final boolean DEBUG_UPGRADE = false;
     static final boolean DEBUG_DOMAIN_VERIFICATION = false;
     static final boolean DEBUG_BACKUP = false;
-    public static final boolean DEBUG_INSTALL = false;
+    public static final boolean DEBUG_INSTALL = true;
     public static final boolean DEBUG_REMOVE = false;
     static final boolean DEBUG_PACKAGE_INFO = false;
     static final boolean DEBUG_INTENT_MATCHING = false;
